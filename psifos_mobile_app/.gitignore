@@ -1,0 +1,121 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+*.DS_Store
+*.iml
+*.ipr
+*.iws
+*.d
+*.lastbuildstate
+*.pidb
+*.user
+*.userprefs
+*.csproj.user
+*.suo
+*.svclog
+*.suo
+*.ntvs_analysis.dat
+*.dbmdl
+*.dbproj.schemaview
+*.pfx
+*.publishsettings
+
+# Rider
+.idea/
+
+# User-specific
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# VS Code directories
+.vscode/
+
+# Windows Installer directory
+__Installer/
+
+# JetBrains Rider
+.idea/
+
+# User-specific
+*.rsuser
+
+# Mono / Xamarin Studio / Rider
+*.userprefs
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Uncomment if using macOS
+# .DS_Store
+
+# Uncomment if using Linux
+# .directory
+
+# VS Code directories
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.pub-cache/
+.pub/
+/build/
+
+# If you're building an application for the web, you might want to
+# uncomment the following line to ignore the build directory.
+# /build/
+
+# Uncomment if you're using the "flutter-desktop-embedding" library.
+# This contains the binary output of the Flutter build.
+# example/windows/flutter/
+# example/macos/flutter/
+# example/linux/flutter/
+
+# Uncomment if you're generating a package for Flutter for Web using the
+# "flutter pub global run peanut:peanut" command.
+# /wwwroot/
+
+# iOS/Pod related
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework/
+**/ios/Flutter/Flutter.framework/
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Android related
+**/android/app/build/
+**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# Symbolication related
+app.*.symbols
+
+# Exceptions to above rules.
+!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+
+# Uncomment to exclude the pubspec.lock file from version control
+# It is generally recommended to version control this file, as it can help ensure
+# that everyone working on the project is using compatible versions of dependencies.
+# However, if your project has many developers, and a small number of dependency
+# versions, it might be better to uncomment this line to avoid constant merge conflicts.
+# pubspec.lock
