@@ -1,10 +1,13 @@
 sealed class TrusteeEvent {}
 
-final class InitialDataLoaded extends TrusteeEvent {}
+final class InitialDataLoaded extends TrusteeEvent {
+  final String electionShortName;
+  final String trusteeName;
 
-final class KeyPairGenerated extends TrusteeEvent {}
+  InitialDataLoaded({required this.electionShortName, required this.trusteeName});
+}
 
-final class PrivateKeyValidated extends TrusteeEvent {}
+final class CertGenerated extends TrusteeEvent {}
 
 final class TrusteeSynchronized extends TrusteeEvent {}
 

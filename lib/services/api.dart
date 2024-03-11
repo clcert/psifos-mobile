@@ -4,18 +4,39 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   final String baseUrl;
-  final String electionShortName;
   final String trusteeCookie;
-  final String trusteeUUID;
+  late String trusteeName;
+  late String electionShortName;
 
   final int pollingInterval = 5;
 
-  const ApiService({
+  ApiService({
     required this.baseUrl,
-    required this.electionShortName,
     required this.trusteeCookie,
-    required this.trusteeUUID,
   });
+
+  // Getters and setters for electionShortName and trusteeName
+  void setElectionShortName(String electionShortName) {
+    this.electionShortName = electionShortName;
+  }
+  void setTrusteeName(String trusteeName) {
+    this.trusteeName = trusteeName;
+  }
+
+
+  Future<int> getParticipantId() async {
+    var participantIdResponse = await http.get(
+      Uri.parse(
+          '$baseUrl/$electionShortName/trustee/$trusteeName/get-participant-id'),
+      headers: {'Cookie': 'session=$trusteeCookie'},
+    );
+
+    if (participantIdResponse.statusCode == 200) {
+      return json.decode(participantIdResponse.body)["participant_id"];
+    } else {
+      return -1;
+    }
+  }
 
   Future<Map<String, dynamic>> getEgParams() async {
     try {
@@ -33,7 +54,6 @@ class ApiService {
         };
       }
     } catch (e) {
-      print(e);
       return {
         "status_code": "500",
         "error": "Error retrieving eg_params.",
@@ -54,41 +74,29 @@ class ApiService {
     }
   }
 
-  Future<bool> uploadPublicKey(String publicKey) async {
+  Future<bool> uploadCertificate(Map<String, dynamic> cert) async {
     var uploadPublicKey = await http.post(
-      Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/upload-pk'),
+      Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeName/upload-cert'),
       headers: {
         'Content-Type': 'application/json',
         'Cookie': 'session=$trusteeCookie'
       },
-      body: json.encode({'public_key_json': publicKey}),
-    );
-    return uploadPublicKey.statusCode == 200;
-  }
-
-  Future<bool> privateKeyValidated(String privateKey) async {
-    var uploadPublicKey = await http.post(
-      Uri.parse(
-          '$baseUrl/$electionShortName/trustee/$trusteeUUID/private-key-validated'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': 'session=$trusteeCookie'
-      },
+      body: json.encode(cert),
     );
     return uploadPublicKey.statusCode == 200;
   }
 
   // Trustee Sync
 
-  Stream<int?> pollTrusteeStep(
+  Stream<int?> pollKeyGenStep(
       StreamController<int> trusteeStepController) async* {
     while (true) {
       await Future.delayed(Duration(seconds: pollingInterval));
-      final response = await http.get(Uri.parse(
-          '$baseUrl/$electionShortName/trustee/$trusteeUUID/get-step'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/$electionShortName/get-global-keygen-step'));
 
       if (response.statusCode == 200) {
-        int trusteeStep = json.decode(response.body)["status"];
+        int trusteeStep = json.decode(response.body)["global_keygen_step"];
         yield trusteeStep;
         if (trusteeStep == 4) {
           break;
@@ -97,118 +105,72 @@ class ApiService {
     }
   }
 
-  Future<String> getTrusteeSyncStep1() async {
-    var stepResponse = await http.get(
-      Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/step-1'),
-      headers: {'Cookie': 'session=$trusteeCookie'},
-    );
-
-    if (stepResponse.statusCode == 200) {
-      return json.decode(stepResponse.body)["certificates"];
-    } else {
-      return "Error retrieving step 1 data.";
-    }
-  }
-
-  Future<bool> postTrusteeSyncStep1(String coefficients, String points) async {
-    var stepResponse = await http.post(
-        Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/step-1'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': 'session=$trusteeCookie'
-        },
-        body: json.encode({
-          "coefficients": coefficients,
-          "points": points,
-        }));
-    return stepResponse.statusCode == 200;
-  }
-
-  Future<Map<String, dynamic>> getTrusteeSyncStep2() async {
-    var stepResponse = await http.get(
-      Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/step-2'),
-      headers: {'Cookie': 'session=$trusteeCookie'},
-    );
-
-    if (stepResponse.statusCode == 200) {
-      return json.decode(stepResponse.body);
-    } else {
-      return {
-        "status_code": stepResponse.statusCode.toString(),
-        "error": "Error retrieving step 2 data.",
-      };
-    }
-  }
-
-  Future<bool> postTrusteeSyncStep2(String acknowledgements) async {
-    var stepResponse = await http.post(
-        Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/step-2'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': 'session=$trusteeCookie'
-        },
-        body: json.encode({
-          "acknowledgements": acknowledgements,
-        }));
-    return stepResponse.statusCode == 200;
-  }
-
-  Future<Map<String, dynamic>> getTrusteeSyncStep3() async {
-    var stepResponse = await http.get(
-      Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/step-3'),
-      headers: {'Cookie': 'session=$trusteeCookie'},
-    );
-
-    if (stepResponse.statusCode == 200) {
-      return json.decode(stepResponse.body);
-    } else {
-      return {
-        "status_code": stepResponse.statusCode.toString(),
-        "error": "Error retrieving step 3 data.",
-      };
-    }
-  }
-
-  Future<bool> postTrusteeSyncStep3(String verificationKey) async {
-    var stepResponse = await http.post(
-        Uri.parse('$baseUrl/$electionShortName/trustee/$trusteeUUID/step-3'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': 'session=$trusteeCookie'
-        },
-        body: json.encode({
-          "verification_key": verificationKey,
-        }));
-    return stepResponse.statusCode == 200;
-  }
-
-  Future<Map<String, dynamic>> getPartialDecryptionData() async {
-    var response = await http.get(
-      Uri.parse(
-          '$baseUrl/$electionShortName/trustee/$trusteeUUID/decrypt-and-prove'),
-      headers: {'Cookie': 'session=$trusteeCookie'},
-    );
+  Future<Map<String, dynamic>> _getFromEndpoint(String endpoint) async {
+    final url = Uri.parse('$baseUrl/$electionShortName/$endpoint');
+    final response =
+        await http.get(url, headers: {'Cookie': 'session=$trusteeCookie'});
 
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
       return {
         "status_code": response.statusCode.toString(),
-        "error": "Error retrieving decryption data.",
+        "error": "Error retrieving $endpoint data.",
       };
     }
   }
 
-  Future<bool> postPartialDecryption(
-      List<Map<String, dynamic>> partialDecryption) async {
-    var response = await http.post(
-        Uri.parse(
-            '$baseUrl/$electionShortName/trustee/$trusteeUUID/decrypt-and-prove'),
+  Future<bool> _postToEndpoint(
+      String endpoint, Map<String, dynamic> stepData) async {
+    final url = Uri.parse('$baseUrl/$electionShortName/$endpoint');
+    final response = await http.post(url,
         headers: {
           'Content-Type': 'application/json',
           'Cookie': 'session=$trusteeCookie'
         },
-        body: json.encode({'decryptions': partialDecryption}));
+        body: json.encode(stepData));
+
+    return response.statusCode == 200;
+  }
+
+  Future<Map<String, dynamic>> getTrusteeKeyGenStep1() async {
+    return await _getFromEndpoint('trustee/$trusteeName/step-1');
+  }
+
+  Future<bool> postTrusteeKeyGenStep1(Map<String, dynamic> stepData) async {
+    return await _postToEndpoint('trustee/$trusteeName/step-1', stepData);
+  }
+
+  Future<Map<String, dynamic>> getTrusteeKeyGenStep2() async {
+    return await _getFromEndpoint('trustee/$trusteeName/step-2');
+  }
+
+  Future<bool> postTrusteeKeyGenStep2(Map<String, dynamic> stepData) async {
+    return await _postToEndpoint('trustee/$trusteeName/step-2', stepData);
+  }
+
+  Future<Map<String, dynamic>> getTrusteeKeyGenStep3() async {
+    return await _getFromEndpoint('trustee/$trusteeName/step-3');
+  }
+
+  Future<bool> postTrusteeKeyGenStep3(Map<String, dynamic> stepData) async {
+    return await _postToEndpoint('trustee/$trusteeName/step-3', stepData);
+  }
+
+  Future<Map<String, dynamic>> getPartialDecryptionData() async {
+    return await _getFromEndpoint('trustee/$trusteeName/decrypt-and-prove');
+  }
+
+  Future<bool> postPartialDecryption(
+      Map<String, dynamic> partialDecryption) async {
+    var response = await http.post(
+        Uri.parse(
+            '$baseUrl/$electionShortName/trustee/$trusteeName/decrypt-and-prove'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': 'session=$trusteeCookie'
+        },
+        body: json.encode(partialDecryption));
     return response.statusCode == 200;
   }
 }

@@ -25,7 +25,7 @@ class KeyGenerationWidget extends StatelessWidget {
 
     // Wait for 5 seconds before transitioning
     Future.delayed(const Duration(seconds: 5), () {
-      trusteeBloc.add(KeyPairGenerated());
+      trusteeBloc.add(CertGenerated());
     });
   }
 }

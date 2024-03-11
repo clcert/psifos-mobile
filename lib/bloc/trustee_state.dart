@@ -1,6 +1,6 @@
 enum TrusteeStatus {
   initial,
-  keyPairGeneration,
+  certGeneration,
   privateKeyValidation,
   synchronization,
   tallyDecryption,
@@ -19,12 +19,7 @@ final class TrusteeInitial extends TrusteeState {
 }
 
 final class TrusteeKeyGeneration extends TrusteeState {
-  const TrusteeKeyGeneration() : super(status: TrusteeStatus.keyPairGeneration);
-}
-
-final class TrusteePrivateKeyValidation extends TrusteeState {
-  const TrusteePrivateKeyValidation()
-      : super(status: TrusteeStatus.privateKeyValidation);
+  const TrusteeKeyGeneration() : super(status: TrusteeStatus.certGeneration);
 }
 
 final class TrusteeSynchronization extends TrusteeState {
