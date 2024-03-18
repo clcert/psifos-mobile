@@ -202,6 +202,10 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
 
     // Pull step 2 data from endpoint
     Map<String, dynamic> inputStepData = await apiService.getTrusteeKeyGenStep2();
+
+    // Store recv_shares using Secure Storage
+    final recvShares = inputStepData['signed_encrypted_shares'];
+    await secureStorage.write(namespace: electionShortName, key: 'recvShares', value: json.encode(recvShares));
       
     // Retrieve key pairs from Secure Storage
     final encodedKeyPairs = await secureStorage.read(namespace: electionShortName, key: 'keyPairs');
@@ -240,20 +244,36 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     final participantId = int.parse(encodedParticipantId!);
 
     // Pull step 3 data from endpoint
-    Map<String, dynamic> inputStepData = await apiService.getTrusteeKeyGenStep3();
+    Map<String, dynamic> stepData = await apiService.getTrusteeKeyGenStep3();
     
+    // Retrieve recvShares from Secure Storage
+    final encodedRecvShares = await secureStorage.read(namespace: electionShortName, key: 'recvShares');
+    final recvSharesJSON = json.decode(encodedRecvShares!);
+
+    // Based on stepData and recvShares, make a Map to use as input.
+    final inputStepData = {
+      'recv_shares': recvSharesJSON,
+      ...stepData
+    };
+
     // Parse input step data and retrieve useful params
-    final recvShares = TrusteeSyncStep3.parseInput(inputStepData);
+    final parsedInput = TrusteeSyncStep3.parseInput(inputStepData);
+    final recvShares = parsedInput['recv_shares']!;
 
     // Handle trustee sync step 3
     final outputStepData = TrusteeSyncStep3.handle(recvShares, curveName, threshold, numParticipants, participantId);
     
-    // Store final secret using Secure Storage
+    // Store final secret and verification_key using Secure Storage
     final secret = outputStepData['secret']!;
+    final verificationKey = outputStepData['verification_key']!;
     await secureStorage.write(namespace: electionShortName, key: 'secret', value: secret);
+    await secureStorage.write(namespace: electionShortName, key: 'verificationKey', value: verificationKey);
 
     // Push step 3 data to endpoint
-    final verificationKey = {'verification_key': outputStepData['verification_key']!};
-    await apiService.postTrusteeKeyGenStep3(verificationKey);
+    await apiService.postTrusteeKeyGenStep3({'verification_key': verificationKey});
+
+    // Delete data from Secure Storage that is no longer needed
+    await secureStorage.delete(namespace: electionShortName, key: 'recvShares');
+    await secureStorage.delete(namespace: electionShortName, key: 'certificates');
   }
 }

@@ -325,7 +325,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "789db289397cf9ded9a7d9bbfbc230b72d01bd13"
+      resolved-ref: "4069e19a355aa9eba1b6d25975e944ecdec492c4"
       url: "https://github.com/clcert/psifos_mobile_crypto.git"
     source: git
     version: "0.0.1"
