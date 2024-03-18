@@ -15,10 +15,10 @@ import 'package:psifos_mobile_app/services/api.dart';
 import 'package:psifos_mobile_app/utils/secure_storage.dart';
 
 // Crypto 
-import 'package:pointycastle/ecc/curves/secp521r1.dart';
 import 'package:psifos_mobile_crypto/psifos/trustee/export.dart';
 import 'package:psifos_mobile_crypto/crypto/ecc/ec_dsa/export.dart';
 import 'package:psifos_mobile_crypto/crypto/modp/rsa/export.dart';
+import 'package:pointycastle/ecc/api.dart' as ecc_api;
 
 class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
   final ApiService apiService;
@@ -26,15 +26,6 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
   late String electionShortName;
   late String trusteeName;
   
-  late int participantId;
-  late String randomness;
-  late Map<String, dynamic> egParams;
-
-  // TODO: replace by API provided params
-  final domainParams = ECCurve_secp521r1();
-  final threshold = 2;
-  final numParticipants = 3;
-
   final secureStorage = const SecureStorage();
   final StreamController<int> _trusteeStepController = StreamController<int>();
 
@@ -50,23 +41,18 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     // Retrieve election short name and trustee name
     electionShortName = event.electionShortName;
     trusteeName = event.trusteeName;
-    print("electionShortName: $electionShortName");
-    print("trusteeName: $trusteeName");
 
     // Set election short name and trustee name in ApiService
     apiService.setElectionShortName(electionShortName);
     apiService.setTrusteeName(trusteeName);
 
     // Make HTTP GET request to retrieve participant_id
-    await apiService.getParticipantId().then((value) => participantId = value);
-
-    // Make HTTP GET request to retrieve eg_params
-    await apiService.getEgParams().then((value) => egParams = value);
-
-    // Make HTTP GET request to retrieve randomness
-    await apiService.getRandomness().then((value) => randomness = value);
-
-    print("participantId: $participantId");
+    int participantId = await apiService.getParticipantId();
+    await secureStorage.write(namespace: electionShortName, key: 'participantId', value: participantId.toString());
+    
+    // Make HTTP GET request to retrieve election params
+    Map<String, dynamic> electionParams = await apiService.getElectionParams();
+    await secureStorage.write(namespace: electionShortName, key: 'electionParams', value: json.encode(electionParams));
 
     // Transition state machine to key generation state
     emit(const TrusteeKeyGeneration());
@@ -74,6 +60,10 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
 
   void _onCertGenerated(
       CertGenerated event, Emitter<TrusteeState> emit) async {
+    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
+    final electionParams = json.decode(encodedElectionParams!);
+    final curveName = electionParams["tdkg"]["curve"];
+    final domainParams = ecc_api.ECDomainParameters(curveName);
     
     // Generate signature keys
     final signatureKeyPair = ECDSA.generateKeyPair(domainParams);
@@ -164,6 +154,16 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
   // Trustee Synchronization
 
   void _handleTrusteeSyncStep1() async {
+    // Read election params from Secure Storage
+    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
+    final electionParams = json.decode(encodedElectionParams!);
+
+    final curveName = electionParams["tdkg"]["curve"];
+    final domainParams = ecc_api.ECDomainParameters(curveName);
+
+    final threshold = electionParams["tdkg"]["threshold"];
+    final numParticipants = electionParams["tdkg"]["num_participants"];
+
     // Pull step 1 data from endpoint
     Map<String, dynamic> inputStepData = await apiService.getTrusteeKeyGenStep1();
 
@@ -171,7 +171,7 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     await secureStorage.write(namespace: electionShortName, key: 'certificates', value: json.encode(inputStepData));
 
     // Parse input step data and retrieve useful params
-    final parsedInput = TrusteeSyncStep1.parseInput(inputStepData);
+    final parsedInput = TrusteeSyncStep1.parseInput(inputStepData, curveName);
     final encryptionPublicKeys = parsedInput['encryption_public_keys']!;
 
     // Retrieve signature private key from Secure Storage
@@ -181,13 +181,25 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     ECPrivateKey signaturePrivateKey = ECPrivateKey.fromJson(sigPrivateKey, domainParams);
 
     // Handle trustee sync step 1
-    final outputStepData = TrusteeSyncStep1.handle(signaturePrivateKey, encryptionPublicKeys, domainParams, threshold, numParticipants);
+    final outputStepData = TrusteeSyncStep1.handle(signaturePrivateKey, encryptionPublicKeys, curveName, threshold, numParticipants);
 
     // Push step 1 data to endpoint
     await apiService.postTrusteeKeyGenStep1(outputStepData);
   }
 
   void _handleTrusteeSyncStep2() async {
+    // Read election params from Secure Storage
+    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
+    final electionParams = json.decode(encodedElectionParams!);
+
+    final curveName = electionParams["tdkg"]["curve"];
+    final threshold = electionParams["tdkg"]["threshold"];
+    final numParticipants = electionParams["tdkg"]["num_participants"];
+
+    // Retrieve participant ID from Secure Storage
+    final encodedParticipantId = await secureStorage.read(namespace: electionShortName, key: 'participantId');
+    final participantId = int.parse(encodedParticipantId!);
+
     // Pull step 2 data from endpoint
     Map<String, dynamic> inputStepData = await apiService.getTrusteeKeyGenStep2();
       
@@ -200,7 +212,7 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     final certificates = json.decode(encodedCertificates!);
 
     // Parse input step data and retrieve useful params
-    final parsedInput = TrusteeSyncStep2.parseInput(keyPairs, certificates, inputStepData);
+    final parsedInput = TrusteeSyncStep2.parseInput(keyPairs, certificates, inputStepData, curveName);
     final encryptionPrivateKey = parsedInput['encryption_private_key']!;
     final signaturePrivateKey = parsedInput['signature_private_key']!;
     final signaturePublicKeys = parsedInput['signature_public_keys']!;
@@ -208,13 +220,25 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     final signedBroadcasts = parsedInput['signed_broadcasts']!;
 
     // Handle trustee sync step 2
-    final outputStepData = TrusteeSyncStep2.handle(encryptionPrivateKey, signaturePrivateKey, signaturePublicKeys, signedEncryptedShares, signedBroadcasts, threshold, numParticipants, participantId);
+    final outputStepData = TrusteeSyncStep2.handle(encryptionPrivateKey, signaturePrivateKey, signaturePublicKeys, signedEncryptedShares, signedBroadcasts, curveName, threshold, numParticipants, participantId);
 
     // Push step 2 data to endpoint
     await apiService.postTrusteeKeyGenStep2(outputStepData);
   }
 
   void _handleTrusteeSyncStep3() async {
+    // Read election params from Secure Storage
+    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
+    final electionParams = json.decode(encodedElectionParams!);
+
+    final threshold = electionParams["tdkg"]["threshold"];
+    final curveName = electionParams["tdkg"]["curve"];
+    final numParticipants = electionParams["tdkg"]["num_participants"];
+
+    // Retrieve participant ID from Secure Storage
+    final encodedParticipantId = await secureStorage.read(namespace: electionShortName, key: 'participantId');
+    final participantId = int.parse(encodedParticipantId!);
+
     // Pull step 3 data from endpoint
     Map<String, dynamic> inputStepData = await apiService.getTrusteeKeyGenStep3();
     
@@ -222,7 +246,7 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     final recvShares = TrusteeSyncStep3.parseInput(inputStepData);
 
     // Handle trustee sync step 3
-    final outputStepData = TrusteeSyncStep3.handle(recvShares, threshold, numParticipants, participantId);
+    final outputStepData = TrusteeSyncStep3.handle(recvShares, curveName, threshold, numParticipants, participantId);
     
     // Store final secret using Secure Storage
     final secret = outputStepData['secret']!;

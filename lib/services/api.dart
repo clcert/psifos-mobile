@@ -23,7 +23,6 @@ class ApiService {
     this.trusteeName = trusteeName;
   }
 
-
   Future<int> getParticipantId() async {
     var participantIdResponse = await http.get(
       Uri.parse(
@@ -38,39 +37,26 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getEgParams() async {
+  Future<Map<String, dynamic>> getElectionParams() async {
     try {
-      var egParamsResponse = await http.get(
-        Uri.parse('$baseUrl/$electionShortName/get-eg-params'),
+      var electionParamsResponse = await http.get(
+        Uri.parse('$baseUrl/$electionShortName/get-election-params'),
         headers: {'Cookie': 'session=$trusteeCookie'},
       );
 
-      if (egParamsResponse.statusCode == 200) {
-        return json.decode(egParamsResponse.body);
+      if (electionParamsResponse.statusCode == 200) {
+        return json.decode(electionParamsResponse.body);
       } else {
         return {
-          "status_code": egParamsResponse.statusCode.toString(),
-          "error": "Error retrieving eg_params.",
+          "status_code": electionParamsResponse.statusCode.toString(),
+          "error": "Error retrieving election params.",
         };
       }
     } catch (e) {
       return {
         "status_code": "500",
-        "error": "Error retrieving eg_params.",
+        "error": "Error retrieving election params.",
       };
-    }
-  }
-
-  Future<String> getRandomness() async {
-    var randomnessResponse = await http.get(
-      Uri.parse('$baseUrl/$electionShortName/get-randomness'),
-      headers: {'Cookie': 'session=$trusteeCookie'},
-    );
-
-    if (randomnessResponse.statusCode == 200) {
-      return json.decode(randomnessResponse.body)["randomness"];
-    } else {
-      return "error";
     }
   }
 
