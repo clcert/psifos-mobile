@@ -37,10 +37,10 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getElectionParams() async {
+  Future<Map<String, dynamic>> getKeyGenParams() async {
     try {
       var electionParamsResponse = await http.get(
-        Uri.parse('$baseUrl/$electionShortName/get-election-params'),
+        Uri.parse('$baseUrl/$electionShortName/get-tdkg-params'),
         headers: {'Cookie': 'session=$trusteeCookie'},
       );
 

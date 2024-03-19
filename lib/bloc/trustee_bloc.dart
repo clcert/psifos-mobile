@@ -51,8 +51,8 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
     await secureStorage.write(namespace: electionShortName, key: 'participantId', value: participantId.toString());
     
     // Make HTTP GET request to retrieve election params
-    Map<String, dynamic> electionParams = await apiService.getElectionParams();
-    await secureStorage.write(namespace: electionShortName, key: 'electionParams', value: json.encode(electionParams));
+    Map<String, dynamic> keyGenParams = await apiService.getKeyGenParams();
+    await secureStorage.write(namespace: electionShortName, key: 'keyGenParams', value: json.encode(keyGenParams));
 
     // Transition state machine to key generation state
     emit(const TrusteeKeyGeneration());
@@ -60,9 +60,9 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
 
   void _onCertGenerated(
       CertGenerated event, Emitter<TrusteeState> emit) async {
-    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
-    final electionParams = json.decode(encodedElectionParams!);
-    final curveName = electionParams["tdkg"]["curve"];
+    final encodedKeyGenParams = await secureStorage.read(namespace: electionShortName, key: 'keyGenParams');
+    final keyGenParams = json.decode(encodedKeyGenParams!);
+    final curveName = keyGenParams["curve"];
     final domainParams = ecc_api.ECDomainParameters(curveName);
     
     // Generate signature keys
@@ -155,14 +155,14 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
 
   void _handleTrusteeSyncStep1() async {
     // Read election params from Secure Storage
-    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
-    final electionParams = json.decode(encodedElectionParams!);
+    final encodedKeyGenParams = await secureStorage.read(namespace: electionShortName, key: 'keyGenParams');
+    final keyGenParams = json.decode(encodedKeyGenParams!);
 
-    final curveName = electionParams["tdkg"]["curve"];
+    final curveName = keyGenParams["curve"];
     final domainParams = ecc_api.ECDomainParameters(curveName);
 
-    final threshold = electionParams["tdkg"]["threshold"];
-    final numParticipants = electionParams["tdkg"]["num_participants"];
+    final threshold = keyGenParams["threshold"];
+    final numParticipants = keyGenParams["num_participants"];
 
     // Pull step 1 data from endpoint
     Map<String, dynamic> inputStepData = await apiService.getTrusteeKeyGenStep1();
@@ -189,12 +189,12 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
 
   void _handleTrusteeSyncStep2() async {
     // Read election params from Secure Storage
-    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
-    final electionParams = json.decode(encodedElectionParams!);
+    final encodedKeyGenParams = await secureStorage.read(namespace: electionShortName, key: 'keyGenParams');
+    final keyGenParams = json.decode(encodedKeyGenParams!);
 
-    final curveName = electionParams["tdkg"]["curve"];
-    final threshold = electionParams["tdkg"]["threshold"];
-    final numParticipants = electionParams["tdkg"]["num_participants"];
+    final curveName = keyGenParams["curve"];
+    final threshold = keyGenParams["threshold"];
+    final numParticipants = keyGenParams["num_participants"];
 
     // Retrieve participant ID from Secure Storage
     final encodedParticipantId = await secureStorage.read(namespace: electionShortName, key: 'participantId');
@@ -232,12 +232,12 @@ class TrusteeBloc extends Bloc<TrusteeEvent, TrusteeState> {
 
   void _handleTrusteeSyncStep3() async {
     // Read election params from Secure Storage
-    final encodedElectionParams = await secureStorage.read(namespace: electionShortName, key: 'electionParams');
-    final electionParams = json.decode(encodedElectionParams!);
+    final encodedKeyGenParams = await secureStorage.read(namespace: electionShortName, key: 'keyGenParams');
+    final keyGenParams = json.decode(encodedKeyGenParams!);
 
-    final threshold = electionParams["tdkg"]["threshold"];
-    final curveName = electionParams["tdkg"]["curve"];
-    final numParticipants = electionParams["tdkg"]["num_participants"];
+    final threshold = keyGenParams["threshold"];
+    final curveName = keyGenParams["curve"];
+    final numParticipants = keyGenParams["num_participants"];
 
     // Retrieve participant ID from Secure Storage
     final encodedParticipantId = await secureStorage.read(namespace: electionShortName, key: 'participantId');
